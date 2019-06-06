@@ -1,6 +1,8 @@
 %global  _hardened_build     1
 %global  nginx_user          nginx
 
+%define  MODULESDIR          $RPM_BUILD_DIR/nginx-%{version}/modules
+
 # Disable strict symbol checks in the link editor.
 # See: https://src.fedoraproject.org/rpms/redhat-rpm-config/c/078af19
 %undefine _strict_symbol_defs_build
@@ -23,7 +25,7 @@
 Name:              nginx
 Epoch:             1
 Version:           1.16.0
-Release:           4%{?dist}
+Release:           5%{?dist}
 
 Summary:           A high performance web server and reverse proxy server
 # BSD License (two clause)
@@ -32,6 +34,7 @@ License:           BSD
 URL:               http://nginx.org/
 
 Source0:           https://nginx.org/download/nginx-%{version}.tar.gz
+Source1:           modules.tar.gz 
 Source10:          nginx.service
 Source11:          nginx.logrotate
 Source12:          nginx.conf
@@ -89,15 +92,6 @@ memory usage.
 Summary:           A meta package that installs all available Nginx modules
 BuildArch:         noarch
 
-%if %{with geoip}
-Requires:          nginx-mod-http-geoip = %{epoch}:%{version}-%{release}
-%endif
-Requires:          nginx-mod-http-image-filter = %{epoch}:%{version}-%{release}
-Requires:          nginx-mod-http-perl = %{epoch}:%{version}-%{release}
-Requires:          nginx-mod-http-xslt-filter = %{epoch}:%{version}-%{release}
-Requires:          nginx-mod-mail = %{epoch}:%{version}-%{release}
-Requires:          nginx-mod-stream = %{epoch}:%{version}-%{release}
-
 %description all-modules
 Meta package that installs all available nginx modules.
 
@@ -110,63 +104,6 @@ Requires(pre):     shadow-utils
 The nginx-filesystem package contains the basic directory layout
 for the Nginx server including the correct permissions for the
 directories.
-
-%if %{with geoip}
-%package mod-http-geoip
-Summary:           Nginx HTTP geoip module
-BuildRequires:     GeoIP-devel
-Requires:          nginx
-Requires:          GeoIP
-
-%description mod-http-geoip
-%{summary}.
-%endif
-
-%package mod-http-image-filter
-Summary:           Nginx HTTP image filter module
-BuildRequires:     gd-devel
-Requires:          nginx
-Requires:          gd
-
-%description mod-http-image-filter
-%{summary}.
-
-%package mod-http-perl
-Summary:           Nginx HTTP perl module
-BuildRequires:     perl-devel
-%if 0%{?fedora} >= 24
-BuildRequires:     perl-generators
-%endif
-BuildRequires:     perl(ExtUtils::Embed)
-Requires:          nginx
-Requires:          perl(:MODULE_COMPAT_%(eval "`%{__perl} -V:version`"; echo $version))
-Requires:          perl(constant)
-
-%description mod-http-perl
-%{summary}.
-
-%package mod-http-xslt-filter
-Summary:           Nginx XSLT module
-BuildRequires:     libxslt-devel
-Requires:          nginx
-
-%description mod-http-xslt-filter
-%{summary}.
-
-%package mod-mail
-Summary:           Nginx mail modules
-Requires:          nginx
-
-%description mod-mail
-%{summary}.
-
-%package mod-stream
-Summary:           Nginx stream modules
-Requires:          nginx
-
-%description mod-stream
-%{summary}.
-
 
 %prep
 %setup -q
@@ -200,6 +137,7 @@ if ! ./configure \
     --http-fastcgi-temp-path=%{_localstatedir}/lib/nginx/tmp/fastcgi \
     --http-uwsgi-temp-path=%{_localstatedir}/lib/nginx/tmp/uwsgi \
     --http-scgi-temp-path=%{_localstatedir}/lib/nginx/tmp/scgi \
+    --add-module=%{MODULESDIR}/ngx_http_substitutions_filter_module \
     --pid-path=/run/nginx.pid \
     --lock-path=/run/lock/subsys/nginx \
     --user=%{nginx_user} \
@@ -213,11 +151,6 @@ if ! ./configure \
     --with-http_realip_module \
     --with-stream_ssl_preread_module \
     --with-http_addition_module \
-    --with-http_xslt_module=dynamic \
-    --with-http_image_filter_module=dynamic \
-%if %{with geoip}
-    --with-http_geoip_module=dynamic \
-%endif
     --with-http_sub_module \
     --with-http_dav_module \
     --with-http_flv_module \
@@ -229,14 +162,9 @@ if ! ./configure \
     --with-http_degradation_module \
     --with-http_slice_module \
     --with-http_stub_status_module \
-    --with-http_perl_module=dynamic \
     --with-http_auth_request_module \
-    --with-mail=dynamic \
-    --with-mail_ssl_module \
     --with-pcre \
     --with-pcre-jit \
-    --with-stream=dynamic \
-    --with-stream_ssl_module \
 %if 0%{?with_gperftools}
     --with-google_perftools_module \
 %endif
@@ -311,21 +239,6 @@ for i in ftdetect ftplugin indent syntax; do
         %{buildroot}%{_datadir}/vim/vimfiles/${i}/nginx.vim
 done
 
-%if %{with geoip}
-echo 'load_module "%{_libdir}/nginx/modules/ngx_http_geoip_module.so";' \
-    > %{buildroot}%{_datadir}/nginx/modules/mod-http-geoip.conf
-%endif
-echo 'load_module "%{_libdir}/nginx/modules/ngx_http_image_filter_module.so";' \
-    > %{buildroot}%{_datadir}/nginx/modules/mod-http-image-filter.conf
-echo 'load_module "%{_libdir}/nginx/modules/ngx_http_perl_module.so";' \
-    > %{buildroot}%{_datadir}/nginx/modules/mod-http-perl.conf
-echo 'load_module "%{_libdir}/nginx/modules/ngx_http_xslt_filter_module.so";' \
-    > %{buildroot}%{_datadir}/nginx/modules/mod-http-xslt-filter.conf
-echo 'load_module "%{_libdir}/nginx/modules/ngx_mail_module.so";' \
-    > %{buildroot}%{_datadir}/nginx/modules/mod-mail.conf
-echo 'load_module "%{_libdir}/nginx/modules/ngx_stream_module.so";' \
-    > %{buildroot}%{_datadir}/nginx/modules/mod-stream.conf
-
 %pre filesystem
 getent group %{nginx_user} > /dev/null || groupadd -r %{nginx_user}
 getent passwd %{nginx_user} > /dev/null || \
@@ -335,38 +248,6 @@ exit 0
 
 %post
 %systemd_post nginx.service
-
-%if %{with geoip}
-%post mod-http-geoip
-if [ $1 -eq 1 ]; then
-    /usr/bin/systemctl reload nginx.service >/dev/null 2>&1 || :
-fi
-%endif
-
-%post mod-http-image-filter
-if [ $1 -eq 1 ]; then
-    /usr/bin/systemctl reload nginx.service >/dev/null 2>&1 || :
-fi
-
-%post mod-http-perl
-if [ $1 -eq 1 ]; then
-    /usr/bin/systemctl reload nginx.service >/dev/null 2>&1 || :
-fi
-
-%post mod-http-xslt-filter
-if [ $1 -eq 1 ]; then
-    /usr/bin/systemctl reload nginx.service >/dev/null 2>&1 || :
-fi
-
-%post mod-mail
-if [ $1 -eq 1 ]; then
-    /usr/bin/systemctl reload nginx.service >/dev/null 2>&1 || :
-fi
-
-%post mod-stream
-if [ $1 -eq 1 ]; then
-    /usr/bin/systemctl reload nginx.service >/dev/null 2>&1 || :
-fi
 
 %preun
 %systemd_preun nginx.service
@@ -428,37 +309,11 @@ fi
 %dir %{_sysconfdir}/systemd/system/nginx.service.d
 %dir %{_unitdir}/nginx.service.d
 
-%if %{with geoip}
-%files mod-http-geoip
-%{_datadir}/nginx/modules/mod-http-geoip.conf
-%{_libdir}/nginx/modules/ngx_http_geoip_module.so
-%endif
-
-%files mod-http-image-filter
-%{_datadir}/nginx/modules/mod-http-image-filter.conf
-%{_libdir}/nginx/modules/ngx_http_image_filter_module.so
-
-%files mod-http-perl
-%{_datadir}/nginx/modules/mod-http-perl.conf
-%{_libdir}/nginx/modules/ngx_http_perl_module.so
-%dir %{perl_vendorarch}/auto/nginx
-%{perl_vendorarch}/nginx.pm
-%{perl_vendorarch}/auto/nginx/nginx.so
-
-%files mod-http-xslt-filter
-%{_datadir}/nginx/modules/mod-http-xslt-filter.conf
-%{_libdir}/nginx/modules/ngx_http_xslt_filter_module.so
-
-%files mod-mail
-%{_datadir}/nginx/modules/mod-mail.conf
-%{_libdir}/nginx/modules/ngx_mail_module.so
-
-%files mod-stream
-%{_datadir}/nginx/modules/mod-stream.conf
-%{_libdir}/nginx/modules/ngx_stream_module.so
-
 
 %changelog
+* Thu Jun 06 2019 Joseph Bajin <josephbajin@gmail.com> - 1:1.16.0-5
+- Added Support for ngx_http_substitutions_filter_module
+
 * Thu May 30 2019 Jitka Plesnikova <jplesnik@redhat.com> - 1:1.16.0-4
 - Perl 5.30 rebuild
 
