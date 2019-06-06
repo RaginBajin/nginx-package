@@ -126,49 +126,14 @@ export DESTDIR=%{buildroot}
 # So the perl module finds its symbols:
 nginx_ldopts="$RPM_LD_FLAGS -Wl,-E"
 if ! ./configure \
-    --prefix=%{_datadir}/nginx \
-    --sbin-path=%{_sbindir}/nginx \
-    --modules-path=%{_libdir}/nginx/modules \
-    --conf-path=%{_sysconfdir}/nginx/nginx.conf \
-    --error-log-path=%{_localstatedir}/log/nginx/error.log \
-    --http-log-path=%{_localstatedir}/log/nginx/access.log \
-    --http-client-body-temp-path=%{_localstatedir}/lib/nginx/tmp/client_body \
-    --http-proxy-temp-path=%{_localstatedir}/lib/nginx/tmp/proxy \
-    --http-fastcgi-temp-path=%{_localstatedir}/lib/nginx/tmp/fastcgi \
-    --http-uwsgi-temp-path=%{_localstatedir}/lib/nginx/tmp/uwsgi \
-    --http-scgi-temp-path=%{_localstatedir}/lib/nginx/tmp/scgi \
-    --add-module=%{MODULESDIR}/ngx_http_substitutions_filter_module \
-    --pid-path=/run/nginx.pid \
-    --lock-path=/run/lock/subsys/nginx \
+    --prefix=/opt/nginx \
     --user=%{nginx_user} \
     --group=%{nginx_user} \
-%if 0%{?with_aio}
-    --with-file-aio \
-%endif
-    --with-ipv6 \
+    --with-threads \
     --with-http_ssl_module \
     --with-http_v2_module \
-    --with-http_realip_module \
-    --with-stream_ssl_preread_module \
-    --with-http_addition_module \
-    --with-http_sub_module \
-    --with-http_dav_module \
-    --with-http_flv_module \
-    --with-http_mp4_module \
-    --with-http_gunzip_module \
-    --with-http_gzip_static_module \
-    --with-http_random_index_module \
-    --with-http_secure_link_module \
-    --with-http_degradation_module \
-    --with-http_slice_module \
     --with-http_stub_status_module \
-    --with-http_auth_request_module \
-    --with-pcre \
     --with-pcre-jit \
-%if 0%{?with_gperftools}
-    --with-google_perftools_module \
-%endif
-    --with-debug \
     --with-cc-opt="%{optflags} $(pcre-config --cflags)" \
     --with-ld-opt="$nginx_ldopts"; then
   : configure failed
