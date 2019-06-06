@@ -6,4 +6,4 @@ GeoIP-devel gd-devel libxslt-devel openssl-devel pcre-devel \
 perl-devel perl-ExtUtils-Embed zlib-devel expat-devel \
 lua-devel pam-devel epel-release
 WORKDIR /root
-RUN git clone git@github.com:RaginBajin/nginx-package.git
+RUN git clone https://github.com/RaginBajin/nginx-package.git
